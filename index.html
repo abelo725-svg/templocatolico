@@ -1,0 +1,208 @@
+<div class="game-wrapper">
+
+    <div class="top-bar">
+        <div class="score-box">
+            Aciertos: <span id="score">0</span>/14
+        </div>
+        <div class="controls">
+            <button id="unmuteBtn" style="background: #0284c7; margin-right: 5px;">🔊 Activar Sonido</button>
+            <button id="resetBtn">Reiniciar</button>
+        </div>
+    </div>
+
+    <div class="church-map" id="churchMap">
+        <img
+            id="mainImage"
+            src="https://drive.google.com/uc?export=view&id=1Qte-fyzv_QnXSeJm2PCvm0PR0OJdq_Bo"
+            class="church-image"
+            alt="Plano iglesia"
+            onerror="this.src='https://lh3.googleusercontent.com/d/1Qte-fyzv_QnXSeJm2PCvm0PR0OJdq_Bo';"
+        >
+
+        <div class="drop-zone" data-correct="Sacristía" style="top:33.5%; left:7.5%; --w:16%;"></div>
+        <div class="drop-zone" data-correct="Cirio Pascual" style="top:23.8%; left:22.8%; --w:17%;"></div>
+        <div class="drop-zone" data-correct="Confesionario" style="top:51.2%; left:2.8%; --w:16%;"></div>
+        <div class="drop-zone" data-correct="Ambón" style="top:57%; left:19.9%; --w:16%;"></div>
+        <div class="drop-zone" data-correct="Cruz del templo" style="top:6.5%; left:30.5%; --w:17%;"></div>
+        <div class="drop-zone" data-correct="Sagrario" style="top:17%; left:31.2%; --w:16%;"></div>
+        <div class="drop-zone" data-correct="Retablo" style="top:14%; left:51.6%; --w:16%;"></div>
+        <div class="drop-zone" data-correct="Sede o cátedra" style="top:27%; left:59.6%; --w:17%;"></div>
+        <div class="drop-zone" data-correct="Altar" style="top:43.8%; left:58.1%; --w:17%;"></div>
+        <div class="drop-zone" data-correct="Presbiterio" style="top:62%; left:41.6%; --w:16%;"></div>
+        <div class="drop-zone" data-correct="Nave central" style="top:86.8%; left:41.6%; --w:16%;"></div>
+        <div class="drop-zone" data-correct="Vía Crucis" style="top:41.8%; left:81.3%; --w:16%;"></div>
+        <div class="drop-zone" data-correct="Fuente bautismal" style="top:60.2%; left:63.8%; --w:17%;"></div>
+        <div class="drop-zone" data-correct="Agua bendita" style="top:73.7%; left:71.6%; --w:16%;"></div>
+    </div>
+
+    <div class="labels-container" id="labelsContainer"></div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<audio id="audio-success" src="https://actions.google.com/sounds/v1/cartoon/cartoon_wink.ogg" preload="auto"></audio>
+<audio id="audio-error" src="https://actions.google.com/sounds/v1/cartoon/slide_whistle_to_drum_hit.ogg" preload="auto"></audio>
+
+<style>
+*{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color: transparent; }
+body{ font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f1f5f9; padding: 10px; }
+.game-wrapper{ width:100%; max-width:1100px; margin:auto; user-select: none; }
+
+.top-bar{ 
+    display:flex; justify-content:space-between; align-items:center; 
+    background: white; padding: 12px; border-radius: 12px; margin-bottom:15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.score-box{ font-size:1.1rem; font-weight:bold; color: #334155; }
+#resetBtn, #unmuteBtn{ border:none; color:white; padding:8px 18px; border-radius:8px; cursor:pointer; font-weight: bold; }
+#resetBtn{ background:#851414; }
+
+.church-map{ position:relative; width:100%; overflow:hidden; border-radius:16px; background: #cbd5e1; min-height: 300px; }
+.church-image{ width:100%; display:block; pointer-events: none; }
+
+.drop-zone{ 
+    position:absolute; width:var(--w); height: 6.8%; border-radius:6px; 
+    border:2px solid #0ea5e9; background:#ffffff; 
+    display: flex; align-items: center; justify-content: center; z-index: 5;
+    font-size: 10px; font-weight: bold; text-align: center; color: #1e293b;
+}
+.drop-zone.hovered { background: #f0f9ff !important; border-color: #0369a1 !important; transform: scale(1.05); }
+.drop-zone.correct{ background:#ecfdf5 !important; border-color:#10b981 !important; pointer-events: none; }
+.drop-zone.wrong{ background:#fef2f2 !important; border-color:#ef4444 !important; color: #b91c1c; }
+
+.labels-container{ 
+    display:flex; flex-wrap:wrap; gap:10px; justify-content:center; 
+    margin-top:20px; min-height: 80px; transition: all 0.3s ease;
+}
+
+.label{ 
+    background:#334155; color:white; padding:12px 16px; border-radius:10px; 
+    cursor:grab; font-size:14px; font-weight: 600; box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+    touch-action:none;
+}
+
+.label.dragging-ghost { position: fixed; pointer-events: none; z-index: 9999; opacity: 0.9; transform: scale(1.1); }
+
+@media(max-width:480px){ .top-bar { flex-direction: column; gap: 10px; } .score-box, .controls { width:100%; text-align:center; } }
+</style>
+
+<script>
+const labelsData = ["Sacristía", "Cirio Pascual", "Confesionario", "Ambón", "Cruz del templo", "Sagrario", "Retablo", "Sede o cátedra", "Altar", "Presbiterio", "Nave central", "Vía Crucis", "Fuente bautismal", "Agua bendita"];
+const container = document.getElementById("labelsContainer");
+const scoreEl = document.getElementById("score");
+let score = 0, dragged = null, ghostItem = null, currentHoveredZone = null;
+
+function initGame() {
+    container.innerHTML = "";
+    score = 0;
+    scoreEl.textContent = "0";
+    document.querySelectorAll(".drop-zone").forEach(zone => {
+        zone.innerHTML = "";
+        zone.className = "drop-zone";
+        zone.dataset.current = "";
+    });
+    [...labelsData].sort(() => Math.random() - 0.5).forEach(createLabel);
+}
+
+function createLabel(text) {
+    const el = document.createElement("div");
+    el.className = "label";
+    el.textContent = text;
+    el.draggable = true;
+    el.dataset.name = text;
+    el.addEventListener("dragstart", (e) => { dragged = el; });
+    el.addEventListener("touchstart", handleTouchStart, { passive: false });
+    container.appendChild(el);
+}
+
+function handleDrop(zone, item){
+    if(!item || zone.classList.contains("correct")) return;
+
+    const correctValue = zone.dataset.correct;
+    const droppedValue = item.dataset.name;
+
+    // Si había un error previo, devolver esa palabra al banco
+    if(zone.dataset.current && zone.dataset.current !== "") {
+        createLabel(zone.dataset.current);
+    }
+
+    zone.dataset.current = droppedValue;
+    zone.innerHTML = droppedValue;
+    item.remove(); 
+
+    if(droppedValue === correctValue) {
+        zone.className = "drop-zone correct";
+        score++;
+        scoreEl.textContent = score;
+        playSound('audio-success');
+        if(score === 14) confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+    } else {
+        zone.className = "drop-zone wrong";
+        playSound('audio-error');
+    }
+}
+
+function playSound(id) {
+    const aud = document.getElementById(id);
+    if(aud) {
+        aud.currentTime = 0;
+        aud.play().catch(() => {});
+    }
+}
+
+document.querySelectorAll(".drop-zone").forEach(zone => {
+    zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("hovered"); });
+    zone.addEventListener("dragleave", () => zone.classList.remove("hovered"));
+    zone.addEventListener("drop", () => { zone.classList.remove("hovered"); handleDrop(zone, dragged); });
+});
+
+function handleTouchStart(e) {
+    e.preventDefault(); dragged = e.currentTarget;
+    const touch = e.touches[0]; const rect = dragged.getBoundingClientRect();
+    ghostItem = dragged.cloneNode(true);
+    ghostItem.classList.add("dragging-ghost");
+    ghostItem.style.width = rect.width + "px";
+    ghostItem.style.left = (touch.clientX - rect.width / 2) + "px";
+    ghostItem.style.top = (touch.clientY - rect.height / 2) + "px";
+    document.body.appendChild(ghostItem);
+    document.addEventListener("touchmove", handleTouchMove, { passive: false });
+    document.addEventListener("touchend", handleTouchEnd);
+}
+
+function handleTouchMove(e) {
+    if (!ghostItem) return;
+    const touch = e.touches[0];
+    ghostItem.style.left = (touch.clientX - ghostItem.offsetWidth / 2) + "px";
+    ghostItem.style.top = (touch.clientY - ghostItem.offsetHeight / 2) + "px";
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    const zone = target ? target.closest('.drop-zone') : null;
+    if (zone && !zone.classList.contains("correct")) {
+        if (currentHoveredZone !== zone) {
+            if (currentHoveredZone) currentHoveredZone.classList.remove("hovered");
+            currentHoveredZone = zone;
+            currentHoveredZone.classList.add("hovered");
+        }
+    } else if (currentHoveredZone) {
+        currentHoveredZone.classList.remove("hovered");
+        currentHoveredZone = null;
+    }
+}
+
+function handleTouchEnd() {
+    if (ghostItem) ghostItem.remove();
+    if (currentHoveredZone) {
+        currentHoveredZone.classList.remove("hovered");
+        handleDrop(currentHoveredZone, dragged);
+    }
+    ghostItem = null; currentHoveredZone = null;
+    document.removeEventListener("touchmove", handleTouchMove);
+    document.removeEventListener("touchend", handleTouchEnd);
+}
+
+document.getElementById("unmuteBtn").addEventListener("click", function() {
+    playSound('audio-success');
+    this.style.display = "none";
+});
+
+document.getElementById("resetBtn").addEventListener("click", initGame);
+window.onload = initGame;
+</script>
